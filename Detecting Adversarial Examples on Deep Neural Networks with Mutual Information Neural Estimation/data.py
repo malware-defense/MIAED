@@ -1,5 +1,6 @@
 from keras.datasets import mnist,cifar10,cifar100
 import numpy as np
+import os
 
 def get_mnist():
     (x_train,y_train),(x_test,y_test) = mnist.load_data()
@@ -24,3 +25,14 @@ def get_imagenet():
     y_test = np.load('G:/datasets_and_networks/imagenet/data/y_test.npy')
 
     return x_train, y_train, x_test, y_test
+
+def load_drebin_data():
+    x_train = np.load(os.path.join('./', 'datasets/drebin/train/mama_family_ori_train_data.npy'))
+    y_train = np.load(os.path.join('./', 'datasets/drebin/train/mama_family_ori_train_label.npy'))
+    x_test = np.load(os.path.join('./', 'datasets/drebin/test/mama_family_testori_data.npy'))
+    y_test = np.load(os.path.join('./', 'datasets/drebin/test/mama_family_testori_label.npy'))
+
+    x_train = np.reshape(x_train, (-1, 11, 11, 1))
+    x_test = np.reshape(x_test, (-1, 11, 11, 1))
+
+    return (x_train, y_train), (x_test, y_test)
