@@ -26,12 +26,12 @@ def train_MI_autoencoder(encoder,fc_model,decoder,discriminator_global,discrimin
                                                      decoder=decoder,
                                                      discriminator_global=discriminator_global,
                                                      discriminator_local=discriminator_local,
-                                                     discriminator_prior=discriminator_prior)
+                                                     discriminator_prior=discriminator_prior)     # 定义AutoEncoder结构
         mi_autoencoder.train_MI_autoencoder(x,64)
 
-        mi_autoencoder.encoder.save_weights('networks/' + dataset_name + '/autoencoder/mi_'+ablation+'_encoder.h5')
-        mi_autoencoder.fc_model.save_weights('networks/' + dataset_name + '/autoencoder/mi_'+ablation+'_fc_model.h5')
-        mi_autoencoder.decoder.save_weights('networks/' + dataset_name + '/autoencoder/mi_'+ablation+'_decoder.h5')
+        mi_autoencoder.encoder.save_weights('./networks/' + dataset_name + '/autoencoder/mi_'+ablation+'_encoder.h5')
+        mi_autoencoder.fc_model.save_weights('./networks/' + dataset_name + '/autoencoder/mi_'+ablation+'_fc_model.h5')
+        mi_autoencoder.decoder.save_weights('./networks/' + dataset_name + '/autoencoder/mi_'+ablation+'_decoder.h5')
 
         return mi_autoencoder
     if(ablation == 'global'):
@@ -128,7 +128,21 @@ def train_MI_autoencoder(encoder,fc_model,decoder,discriminator_global,discrimin
 
         return mi_autoencoder
 
+    if(ablation == 'none'):
+        mi_autoencoder = Autoencoders.MI_Autoencoder(conf=conf,
+                                                     encoder=encoder,
+                                                     fc_model=fc_model,
+                                                     decoder=decoder,
+                                                     discriminator_global=discriminator_global,
+                                                     discriminator_local=discriminator_local,
+                                                     discriminator_prior=discriminator_prior)     # 定义AutoEncoder结构
+        mi_autoencoder.train_MI_autoencoder(x,64)
 
+        mi_autoencoder.encoder.save_weights('./networks/' + dataset_name + '/autoencoder/mi_'+ablation+'_encoder.h5')
+        mi_autoencoder.fc_model.save_weights('./networks/' + dataset_name + '/autoencoder/mi_'+ablation+'_fc_model.h5')
+        mi_autoencoder.decoder.save_weights('./networks/' + dataset_name + '/autoencoder/mi_'+ablation+'_decoder.h5')
+
+        return mi_autoencoder
 
 
 def train_mnist_autoencoder():
@@ -260,10 +274,10 @@ def train_imagenet_mi_autoencoder(ablation):
 
 
 if __name__ == '__main__':
-    ablations = ['local','global','prior','local_global','local_prior','global_prior']
+    ablations = ['none', 'local','global','prior','local_global','local_prior','global_prior']
     for ablation in ablations:
         print(ablation)
-        train_imagenet_mi_autoencoder(ablation=ablation)
+        train_mnist_mi_autoencoder(ablation=ablation)
 
 
 

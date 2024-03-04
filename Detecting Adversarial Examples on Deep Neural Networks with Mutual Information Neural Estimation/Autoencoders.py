@@ -86,7 +86,7 @@ class MI_Autoencoder():
             for x_batch in zip(x):
                 print('epoch:', epoch)
 
-                loss_d,gp = self.train_discriminator(x_batch,v)
+                loss_d,gp = self.train_discriminator(x_batch,v)    # 这里的训练过程 为什么要先训练
                 d_train_loss(loss_d)
 
                 loss_total = self.train_autoencoder(x_batch)
@@ -136,7 +136,7 @@ class MI_Autoencoder():
             loss_local = local_loss(pos=pos_local_logits, neg=neg_local_logits)
 
 
-            x_vector_noised = tf.add(x_vector, tf.random.normal(shape=x_vector.shape, mean=0.0, stddev=0.1))
+            x_vector_noised = tf.add(x_vector, tf.random.normal(shape=x_vector.shape, mean=0.0, stddev=0.1))     # 添加随机扰动
 
             x_rec = self.decoder(x_vector, training=True)
             x_rec_noised = self.decoder(x_vector_noised, training=True)
