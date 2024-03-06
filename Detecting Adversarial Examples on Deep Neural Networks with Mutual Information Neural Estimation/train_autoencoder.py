@@ -171,6 +171,30 @@ def train_mnist_autoencoder():
                                     dataset_name='mnist',
                                     train_callbacks=train_callbacks)
 
+def train_drebin_mi_autoencoder(ablation):
+    from models import get_drebin_encoder, get_drebin_full_connection_layers, get_drebin_decoder,\
+        get_discriminator_global,get_discriminator_local,get_discriminator_prior
+    from data import load_drebin_data
+    import config
+
+    parser = config.get_arguments_drebin()
+
+    conf = parser.parse_args()
+
+    x_train, _, x_test, _ = load_drebin_data()
+
+    mi_autoencoder = train_MI_autoencoder(encoder=get_drebin_encoder(),
+                                           fc_model=get_drebin_full_connection_layers(64),
+                                           decoder=get_drebin_decoder(64),
+                                           discriminator_global=get_discriminator_global((3 * 3 * 32+64,)),
+                                           discriminator_local=get_discriminator_local((3, 3, 32 + 64)),
+                                           discriminator_prior=get_discriminator_prior((64,)),
+                                           x=x_train,
+                                           conf=conf,
+                                           dataset_name='drebin',
+                                          ablation=ablation)
+
+
 
 def train_mnist_mi_autoencoder(ablation):
     from models import get_mnist_encoder, get_mnist_full_connection_layers, get_mnist_decoder,\
@@ -277,9 +301,8 @@ if __name__ == '__main__':
     ablations = ['none', 'local','global','prior','local_global','local_prior','global_prior']
     for ablation in ablations:
         print(ablation)
-        train_mnist_mi_autoencoder(ablation=ablation)
-
-
+        # train_mnist_mi_autoencoder(ablation=ablation)
+        train_drebin_mi_autoencoder(ablation=ablation)
 
 
 

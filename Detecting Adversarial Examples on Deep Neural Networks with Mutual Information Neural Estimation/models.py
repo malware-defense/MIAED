@@ -45,6 +45,35 @@ def get_mnist_local(mode, dataset_name):
 
     return model
 
+def get_drebin_local(mode, dataset_name):
+
+    inputs = Input(shape=(11, 11, 1))
+    conv_1 = Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1),
+                                    padding='same', activation="relu", name="conv_1")(inputs)
+    max_pooling_1 = MaxPooling2D((2, 2), (2, 2), padding="same")(conv_1)
+    conv_2 = Conv2D(64, (3, 3), padding='same', activation="relu", name="conv_2")(max_pooling_1)
+    max_pooling_2 = MaxPooling2D((2, 2), (2, 2), padding="same")(conv_2)
+
+    max_pooling_2_flat = Flatten(name='flatten')(max_pooling_2)
+
+    fc_1 = Dense(200, activation="relu",name='feature_layer')(max_pooling_2_flat)
+
+    # outputs = Dense(10, activation='softmax')(fc_1)
+    outputs = Dense(2, activation=None)(fc_1)
+    outputs2 = Activation('softmax', name="classification_head")(outputs)
+
+    model = Model(inputs=inputs, outputs=outputs2)
+
+    if mode == 'train':
+        model = train_drebin(model, dataset_name)
+    elif mode == 'load':
+        weights_file = './networks/' + dataset_name + '/classifiers/mi_target' + '_classifier.h5'
+        model.load_weights(weights_file)
+
+    # model.summary()
+
+    return model
+
 def train(model, dataset_name):
     # ================= Settings =========================
     learning_rate = 0.05
@@ -83,7 +112,55 @@ def train(model, dataset_name):
     model.compile(loss=categorical_crossentropy, optimizer=sgd, metrics=['accuracy'])
 
     historytemp = model.fit_generator(datagen.flow(x_train, y=y_train, batch_size=128),
-                                      epochs=5, callbacks=callbacks,
+                                      epochs=50, callbacks=callbacks,
+                                      validation_data=(x_test, y_test))
+
+    # ================= Save model and history =========================
+    with open("./mnist_local_weights_history.pkl", 'wb') as handle:
+        pickle.dump(historytemp.history, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    model.save_weights(weights_file)
+    return model
+
+def train_drebin(model, dataset_name):
+    # ================= Settings =========================
+    learning_rate = 0.05
+    lr_decay = 1e-6
+    lr_drop = 5
+
+    x_train, y_train, x_test, y_test = data.load_drebin_data()
+    y_train = to_categorical(y_train, 2)
+    y_test = to_categorical(y_test, 2)
+
+
+    def lr_scheduler(epoch):
+        return learning_rate * (0.5 ** (epoch // lr_drop))
+
+    reduce_lr = LearningRateScheduler(lr_scheduler)
+    weights_file = './networks/' + dataset_name + '/classifiers/mi_target' + '_classifier.h5'
+    model_checkpoint = ModelCheckpoint(weights_file, monitor='val_accuracy', save_best_only=True, verbose=1)
+    callbacks = [reduce_lr, model_checkpoint]
+
+    # ================= Data augmentation =========================
+    datagen = ImageDataGenerator(
+        featurewise_center=False,  # set input mean to 0 over the dataset
+        samplewise_center=False,  # set each sample mean to 0
+        featurewise_std_normalization=False,  # divide inputs by std of the dataset
+        samplewise_std_normalization=False,  # divide each input by its std
+        zca_whitening=False,  # apply ZCA whitening
+        rotation_range=15,  # randomly rotate images in the range (degrees, 0 to 180)
+        width_shift_range=0.1,  # randomly shift images horizontally (fraction of total width)
+        height_shift_range=0.1,  # randomly shift images vertically (fraction of total height)
+        horizontal_flip=True,  # randomly flip images
+        vertical_flip=False)  # randomly flip images
+
+    # ================= Train =========================
+    datagen.fit(x_train)
+    sgd = optimizers.SGD(lr=learning_rate, decay=lr_decay, momentum=0.9, nesterov=True)
+    model.compile(loss=categorical_crossentropy, optimizer=sgd, metrics=['accuracy'])
+
+    historytemp = model.fit_generator(datagen.flow(x_train, y=y_train, batch_size=128),
+                                      epochs=50, callbacks=callbacks,
                                       validation_data=(x_test, y_test))
 
     # ================= Save model and history =========================
@@ -301,12 +378,34 @@ def get_mnist_encoder():
 
     return Model(inputs=inputs, outputs=max_pool)
 
+def get_drebin_encoder():
+    '''
+    :return: an encoder without full connection layers
+    '''
+    inputs = Input(shape=(11, 11, 1))
+    conv = Conv2D(filters=16, kernel_size=3, strides=1,activation='relu', padding='same', kernel_initializer='he_normal')(inputs)
+    conv = Conv2D(filters=16, kernel_size=3, strides=1,activation='relu', padding='same', kernel_initializer='he_normal')(conv)
+    max_pool = MaxPooling2D((2, 2), (2, 2),padding="same")(conv)
+    conv = Conv2D(filters=32, kernel_size=3, strides=1, activation='relu',padding='same', kernel_initializer='he_normal')(max_pool)
+    conv = Conv2D(filters=32, kernel_size=3, strides=1, activation='relu',padding='same', kernel_initializer='he_normal')(conv)
+    max_pool = MaxPooling2D((2, 2), (2, 2), padding="same")(conv)
+
+    return Model(inputs=inputs, outputs=max_pool)
 
 def get_mnist_full_connection_layers(vector_dimension):
     '''
     :return:  a model with the outputs of encoder as inputs and generate feature vectors
     '''
     inputs = Input(shape=(7,7,32))
+    flat = Flatten()(inputs)
+    feature_vector = Dense(vector_dimension, activation=None, kernel_initializer='he_normal')(flat)
+    return Model(inputs=inputs, outputs=feature_vector)
+
+def get_drebin_full_connection_layers(vector_dimension):
+    '''
+    :return:  a model with the outputs of encoder as inputs and generate feature vectors
+    '''
+    inputs = Input(shape=(3,3,32))
     flat = Flatten()(inputs)
     feature_vector = Dense(vector_dimension, activation=None, kernel_initializer='he_normal')(flat)
     return Model(inputs=inputs, outputs=feature_vector)
@@ -331,6 +430,28 @@ def get_mnist_decoder(vector_dimension):
                   kernel_initializer='he_normal')(conv)
     outputs = Conv2D(filters=1, kernel_size=3, strides=1, padding='same',
                      activation='sigmoid', kernel_initializer='he_normal')(conv)
+    return Model(inputs=inputs, outputs=outputs)
+
+def get_drebin_decoder(vector_dimension):
+    '''
+    :return: a decoder
+    '''
+    inputs = Input(shape=(vector_dimension,))
+    fc = Dense(3 * 3 * 32, activation="relu", kernel_initializer='he_normal')(inputs)
+
+    reshape_fc = Reshape((3, 3, 32))(fc)
+    up_sampling = UpSampling2D(size=(2, 2))(reshape_fc)
+
+    conv = Conv2D(filters=32, kernel_size=3, strides=1,activation='relu', padding='same', kernel_initializer='he_normal')(up_sampling)
+    conv = Conv2D(filters=32, kernel_size=3, strides=1,activation='relu', padding='same', kernel_initializer='he_normal')(conv)
+    up_sampling = UpSampling2D(size=(2, 2))(conv)
+
+    conv = Conv2D(filters=16, kernel_size=3, strides=1, activation='relu', padding='same',
+                  kernel_initializer='he_normal')(up_sampling)
+    conv = Conv2D(filters=16, kernel_size=3, strides=1, activation='relu', padding='same',
+                  kernel_initializer='he_normal')(conv)
+    outputs = Conv2D(filters=1, kernel_size=2, strides=1, padding='valid',
+                     activation='sigmoid', kernel_initializer='he_normal')(conv)    # todo:更改了这里的kernel_size和padding
     return Model(inputs=inputs, outputs=outputs)
 
 def get_discriminator_global(input_shape):

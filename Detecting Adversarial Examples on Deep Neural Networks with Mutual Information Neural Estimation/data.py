@@ -35,4 +35,4 @@ def load_drebin_data():
     x_train = np.reshape(x_train, (-1, 11, 11, 1))
     x_test = np.reshape(x_test, (-1, 11, 11, 1))
 
-    return (x_train, y_train), (x_test, y_test)
+    return x_train, y_train, x_test, y_test
